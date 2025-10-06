@@ -10,65 +10,33 @@
 
     For more details:
     * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
   -->
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="Venus delegate assistant app.">
 
   <!-- iOS meta tags & icons -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="venus_assistant_app">
+  <meta name="apple-mobile-web-app-title" content="Venus Assistant">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>venus_assistant_app</title>
+  <title>Venus Assistant</title>
   <link rel="manifest" href="manifest.json">
 
-  <!-- ===== MODIFICATION START ===== -->
-  <!-- This script acts as a placeholder for the service worker version. -->
-  <!-- The Flutter build process will inject the correct value here, -->
-  <!-- replacing 'null'. This prevents syntax errors. -->
-  <script>
-    var serviceWorkerVersion = null;
-  </script>
-  <!-- ===== MODIFICATION END ===== -->
-
-</head>
-<body>
-  <!-- ===== REQUIRED FIREBASE SCRIPTS (DO NOT REMOVE) ===== -->
+  <!-- Firebase compatibility scripts -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-  
-  <!-- This script adds the flutter initialization JS code -->
-  <script src="flutter.js" defer></script>
 
-  <!-- ===== MODIFICATION START ===== -->
-  <!-- This initialization script now uses the javascript variable, which is safer. -->
-  <script>
-    window.addEventListener('load', function(ev) {
-      _flutter.loader.loadEntrypoint({
-        serviceWorker: {
-          // This now correctly refers to the variable defined in the <head>.
-          serviceWorkerVersion: serviceWorkerVersion,
-        }
-      }).then(function(engineInitializer) {
-        return engineInitializer.initializeEngine();
-      }).then(function(appRunner) {
-        return appRunner.runApp();
-      });
-    });
-  </script>
-  <!-- ===== MODIFICATION END ===== -->
-
+</head>
+<body>
+  <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
 

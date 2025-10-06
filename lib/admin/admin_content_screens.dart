@@ -621,44 +621,83 @@ class AdminQuizScreen extends StatefulWidget {
 }
 
 class _AdminQuizScreenState extends State<AdminQuizScreen> {
+  // MODIFIED: _addQuiz now includes delegate selection
   void _addQuiz() {
     final nameController = TextEditingController();
     final durationController = TextEditingController();
+    List<UserModel> selectedDelegates = [];
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("إنشاء اختبار جديد"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: "اسم الاختبار")),
-            TextField(
-                controller: durationController,
-                decoration: const InputDecoration(labelText: "المدة بالدقائق"),
-                keyboardType: TextInputType.number),
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("إنشاء اختبار جديد"),
+          content: StatefulBuilder(
+            builder: (BuildContext context, StateSetter setDialogState) {
+              return SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                        controller: nameController,
+                        decoration:
+                            const InputDecoration(labelText: "اسم الاختبار")),
+                    TextField(
+                        controller: durationController,
+                        decoration:
+                            const InputDecoration(labelText: "المدة بالدقائق"),
+                        keyboardType: TextInputType.number),
+                    const SizedBox(height: 16),
+                    const Text("توجيه الاختبار إلى (اختياري):"),
+                    // A button to open the delegate selection dialog
+                    ActionChip(
+                      avatar: const Icon(Icons.group_add),
+                      label: Text("اختيار ${selectedDelegates.length} مناديب"),
+                      onPressed: () async {
+                        final result = await showDialog<List<UserModel>>(
+                          context: context,
+                          builder: (_) => const _DelegateSelectionDialog(),
+                        );
+                        if (result != null) {
+                          setDialogState(() {
+                            selectedDelegates = result;
+                          });
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text("إلغاء")),
+            ElevatedButton(
+                onPressed: () {
+                  if (nameController.text.isNotEmpty &&
+                      durationController.text.isNotEmpty) {
+                    // Save selected delegate IDs (portId)
+                    final targetDelegateIds = selectedDelegates
+                        .map((user) => user.portId)
+                        .where((id) => id != null)
+                        .cast<String>()
+                        .toList();
+
+                    FirebaseFirestore.instance.collection('quizzes').add({
+                      'name': nameController.text,
+                      'duration': int.tryParse(durationController.text) ?? 0,
+                      'timestamp': FieldValue.serverTimestamp(),
+                      'targetDelegates': targetDelegateIds, // NEW FIELD
+                    });
+                    Navigator.of(context).pop();
+                  }
+                },
+                child: const Text("إنشاء")),
           ],
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text("إلغاء")),
-          ElevatedButton(
-              onPressed: () {
-                if (nameController.text.isNotEmpty &&
-                    durationController.text.isNotEmpty) {
-                  FirebaseFirestore.instance.collection('quizzes').add({
-                    'name': nameController.text,
-                    'duration': int.tryParse(durationController.text) ?? 0,
-                    'timestamp': FieldValue.serverTimestamp(),
-                  });
-                  Navigator.of(context).pop();
-                }
-              },
-              child: const Text("إنشاء")),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -688,9 +727,16 @@ class _AdminQuizScreenState extends State<AdminQuizScreen> {
             itemCount: snapshot.data!.docs.length,
             itemBuilder: (context, index) {
               final quizDoc = snapshot.data!.docs[index];
+              final data = quizDoc.data() as Map<String, dynamic>;
+              final targets = data.containsKey('targetDelegates')
+                  ? (data['targetDelegates'] as List).length
+                  : 0;
+
               return ListTile(
                 title: Text(quizDoc['name']),
-                subtitle: Text("المدة: ${quizDoc['duration']} دقيقة"),
+                subtitle: Text(
+                    "المدة: ${quizDoc['duration']} دقيقة\nالمستهدفون: ${targets > 0 ? '$targets مناديب' : 'الكل'}"),
+                isThreeLine: true,
                 trailing: IconButton(
                     icon: const Icon(Icons.delete, color: Colors.red),
                     onPressed: () => quizDoc.reference.delete()),
@@ -855,6 +901,7 @@ class _AdminQuestionListScreenState extends State<AdminQuestionListScreen> {
   }
 }
 
+// MODIFIED: AdminNotificationsScreen to include 'مشرف' in search
 class AdminNotificationsScreen extends StatefulWidget {
   final UserModel user;
   const AdminNotificationsScreen({required this.user, super.key});
@@ -869,7 +916,7 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
   bool _isSending = false;
 
   String _searchQuery = '';
-  String _searchType = 'مندوب'; // 'مندوب' or 'مدير'
+  String _searchType = 'مندوب'; // 'مندوب', 'مشرف', or 'مدير'
 
   List<UserModel> _allUsers = [];
   List<UserModel> _filteredUsers = [];
@@ -936,11 +983,14 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
 
     setState(() => _isSending = true);
 
+    // MODIFIED: Logic to get correct ID based on role
     final recipientIds = _selectedUsers
         .map((user) {
-          return user.role == 'مندوب' ? user.portId : user.uid;
+          if (user.role == 'مندوب') return user.portId;
+          // For 'مشرف' and 'مدير', we use their unique UID
+          return user.uid;
         })
-        .where((id) => id != null)
+        .where((id) => id != null && id.isNotEmpty)
         .cast<String>()
         .toList();
 
@@ -997,25 +1047,32 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
                         ),
                       ),
                       const SizedBox(width: 10),
+                      // MODIFIED: Added 'مشرف' button
                       ToggleButtons(
                         borderRadius: BorderRadius.circular(8),
                         isSelected: [
                           _searchType == 'مندوب',
+                          _searchType == 'مشرف',
                           _searchType == 'مدير'
                         ],
                         onPressed: (index) {
                           setState(() {
-                            _searchType = index == 0 ? 'مندوب' : 'مدير';
+                            if (index == 0) _searchType = 'مندوب';
+                            if (index == 1) _searchType = 'مشرف';
+                            if (index == 2) _searchType = 'مدير';
                             _selectedUsers.clear();
                             _filterUsers();
                           });
                         },
                         children: const [
                           Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 16),
+                              padding: EdgeInsets.symmetric(horizontal: 12),
                               child: Text('مندوب')),
                           Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 16),
+                              padding: EdgeInsets.symmetric(horizontal: 12),
+                              child: Text('مشرف')),
+                          Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 12),
                               child: Text('مدير'))
                         ],
                       )
@@ -1029,8 +1086,8 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
                         return CheckboxListTile(
                           title: Text(user.name),
                           subtitle: Text(user.role == 'مندوب'
-                              ? 'منفذ: ${user.portId}'
-                              : 'قطاع: ${user.sectorId}'),
+                              ? 'منفذ: ${user.portId ?? "N/A"}'
+                              : '${user.role}: ${user.sectorId ?? "N/A"}'),
                           value: _selectedUsers.contains(user),
                           onChanged: (isSelected) {
                             setState(() {
@@ -1071,6 +1128,118 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
                 ],
               ),
             ),
+    );
+  }
+}
+
+// NEW: Delegate Selection Dialog for Quizzes
+class _DelegateSelectionDialog extends StatefulWidget {
+  const _DelegateSelectionDialog();
+
+  @override
+  __DelegateSelectionDialogState createState() =>
+      __DelegateSelectionDialogState();
+}
+
+class __DelegateSelectionDialogState extends State<_DelegateSelectionDialog> {
+  List<UserModel> _allDelegates = [];
+  List<UserModel> _filteredDelegates = [];
+  List<UserModel> _selectedDelegates = [];
+  bool _isLoading = true;
+  String _searchQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchDelegates();
+  }
+
+  Future<void> _fetchDelegates() async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('role', isEqualTo: 'مندوب')
+          .get();
+      final users =
+          snapshot.docs.map((doc) => UserModel.fromFirestore(doc)).toList();
+      if (mounted) {
+        setState(() {
+          _allDelegates = users;
+          _filteredDelegates = users;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _filterDelegates() {
+    final query = _searchQuery.toLowerCase();
+    setState(() {
+      _filteredDelegates = _allDelegates.where((user) {
+        if (query.isEmpty) return true;
+        return user.name.toLowerCase().contains(query) ||
+            (user.portId?.contains(query) ?? false);
+      }).toList();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text("اختيار المناديب"),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    onChanged: (value) {
+                      setState(() => _searchQuery = value);
+                      _filterDelegates();
+                    },
+                    decoration: const InputDecoration(
+                      labelText: 'بحث بالاسم أو الكود',
+                      prefixIcon: Icon(Icons.search),
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: _filteredDelegates.length,
+                      itemBuilder: (context, index) {
+                        final user = _filteredDelegates[index];
+                        return CheckboxListTile(
+                          title: Text(user.name),
+                          subtitle: Text('منفذ: ${user.portId}'),
+                          value: _selectedDelegates.contains(user),
+                          onChanged: (isSelected) {
+                            setState(() {
+                              if (isSelected!) {
+                                _selectedDelegates.add(user);
+                              } else {
+                                _selectedDelegates.remove(user);
+                              }
+                            });
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('إلغاء')),
+        ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(_selectedDelegates),
+            child: const Text('تأكيد')),
+      ],
     );
   }
 }

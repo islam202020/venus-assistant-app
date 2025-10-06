@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'main.dart'; // To access UserModel
 import 'dart:async';
 
-// Screen 1: Shows the list of available quizzes
+// MODIFIED: Screen 1 now filters quizzes based on the target audience
 class DelegateQuizListScreen extends StatelessWidget {
   final UserModel user;
   const DelegateQuizListScreen({required this.user, super.key});
@@ -23,11 +23,38 @@ class DelegateQuizListScreen extends StatelessWidget {
           return const Center(child: Text('لا توجد اختبارات متاحة حالياً'));
         }
 
+        // --- MODIFICATION START ---
+        // Filter quizzes: show only general quizzes or those targeted to the current delegate
+        final allQuizzes = snapshot.data!.docs;
+        final myPortId = user.portId;
+
+        final visibleQuizzes = allQuizzes.where((quizDoc) {
+          final data = quizDoc.data() as Map<String, dynamic>;
+          // Check if 'targetDelegates' field exists and is a list
+          if (data.containsKey('targetDelegates') &&
+              data['targetDelegates'] is List) {
+            final targets = List<String>.from(data['targetDelegates']);
+            // If the list is empty, it's a general quiz, show it.
+            if (targets.isEmpty) {
+              return true;
+            }
+            // If the list has targets, show it only if the delegate is in the list.
+            return myPortId != null && targets.contains(myPortId);
+          }
+          // If the field doesn't exist, it's an old general quiz, show it.
+          return true;
+        }).toList();
+        // --- MODIFICATION END ---
+
+        if (visibleQuizzes.isEmpty) {
+          return const Center(child: Text('لا توجد اختبارات متاحة لك حالياً'));
+        }
+
         return ListView.builder(
           padding: const EdgeInsets.all(8.0),
-          itemCount: snapshot.data!.docs.length,
+          itemCount: visibleQuizzes.length, // Use the filtered list
           itemBuilder: (context, index) {
-            final quizDoc = snapshot.data!.docs[index];
+            final quizDoc = visibleQuizzes[index]; // Use the filtered list
             return Card(
               elevation: 4,
               margin: const EdgeInsets.symmetric(vertical: 8),
@@ -67,6 +94,14 @@ class _QuizInfoScreenState extends State<QuizInfoScreen> {
   final _codeController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    // Pre-fill the fields with user data
+    _nameController.text = widget.user.name;
+    _codeController.text = widget.user.portId ?? '';
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     _codeController.dispose();
@@ -99,7 +134,7 @@ class _QuizInfoScreenState extends State<QuizInfoScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text("للبدء، الرجاء إدخال بياناتك",
+            Text("بياناتك جاهزة للاختبار",
                 style: Theme.of(context).textTheme.headlineSmall,
                 textAlign: TextAlign.center),
             const SizedBox(height: 30),
