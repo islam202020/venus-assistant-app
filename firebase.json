@@ -1,0 +1,38 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "venus-assistant-app",
+          "appId": "1:945386292959:android:298274f1a470f6b0718b6a",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "venus-assistant-app",
+          "configurations": {
+            "android": "1:945386292959:android:298274f1a470f6b0718b6a",
+            "ios": "1:945386292959:ios:3cec65a2769f98d9718b6a",
+            "macos": "1:945386292959:ios:3cec65a2769f98d9718b6a",
+            "web": "1:945386292959:web:af5f69574f84ddf7718b6a",
+            "windows": "1:945386292959:web:6aa145f7b8b12cdc718b6a"
+          }
+        }
+      }
+    }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ]
+    }
+  ]
+}

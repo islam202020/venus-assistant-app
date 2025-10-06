@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "945386292959",
+    "project_id": "venus-assistant-app",
+    "storage_bucket": "venus-assistant-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:945386292959:android:298274f1a470f6b0718b6a",
+        "android_client_info": {
+          "package_name": "com.example.venus_assistant_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCuGAzDDi4VGsl4IA2FM2N_A4e1SOVA0Tg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
